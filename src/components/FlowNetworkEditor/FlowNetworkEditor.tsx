@@ -161,7 +161,7 @@ export function FlowNetworkEditor() {
 
     const nodeClickHandler = selectedNode ? (id: NodeId) => {
         //we add the new arc
-        if (id !== selectedNode) {
+        if (id !== selectedNode && !arcs[selectedNode]?.[id] && !arcs[id]?.[selectedNode]) {
             setArcs((prev) => ({
                 ...prev,
                 [selectedNode]: {
@@ -188,6 +188,7 @@ export function FlowNetworkEditor() {
         if (sink === selectedNode) {
             setSink(undefined)
         }
+
         setSelectedNode(undefined)
 
         //remove the arcs from and to the node
