@@ -1,9 +1,12 @@
+import { AppBar, ButtonGroup, makeStyles, Toolbar } from "@material-ui/core";
+import { PlayArrow } from "@material-ui/icons";
 import { useCallback, useState } from "react";
 import { createUseStyles } from "react-jss";
 import { Point } from "../../geometry";
 import { fordFulkerson } from "../../maxflow";
 import { FlowArc, FlowNetworkNode } from "../flow";
 import { NodeId, NumericLabeledArcs } from "../types";
+import { SmartButton } from "./SmartButton";
 
 const useStyles = createUseStyles({
     canvas: {
@@ -11,6 +14,17 @@ const useStyles = createUseStyles({
         height: '100vh',
     }
 })
+
+const useMUIStyles = makeStyles((theme) => ({
+    root: {
+        '& > *': {
+            margin: theme.spacing(1),
+        },
+    },
+    grow: {
+        flexGrow: 1,
+    },
+}));
 
 class Node<T>{
     private id: NodeId
@@ -92,7 +106,7 @@ function relativePosition(absolutePosition: Point) {
 }
 
 export function FlowNetworkEditor() {
-
+    const muiClasses = useMUIStyles()
     const [nodeData, setNodeData] = useState<{ [id: string]: NodeData }>({})
     const [arcs, setArcs] = useState<NumericLabeledArcs>({})
     const [flow, setFlow] = useState<NumericLabeledArcs>({})
@@ -167,11 +181,11 @@ export function FlowNetworkEditor() {
     } : undefined
 
     const deleteClickHandler = selectedNode ? () => {
-        if(source === selectedNode){
+        if (source === selectedNode) {
             setSource(undefined)
         }
 
-        if(sink === selectedNode){
+        if (sink === selectedNode) {
             setSink(undefined)
         }
         setSelectedNode(undefined)
@@ -213,12 +227,17 @@ export function FlowNetworkEditor() {
     const graphNodes = graph.getNodes()
 
     return <>
-        <header>
-            <button onClick={runClickHandler} disabled={!runClickHandler}>Run</button>
-            <button onClick={deleteClickHandler} disabled={!deleteClickHandler} >Delete</button>
-            <button onClick={sourceMarkClickHandler} disabled={!sourceMarkClickHandler} >{selectedNode === source ? 'Unm': 'M'}ark as source</button>
-            <button onClick={sinkMarkClickHandler} disabled={!sinkMarkClickHandler}>{selectedNode === sink ? 'Unm': 'M'}ark as sink</button>
-        </header>
+        <AppBar position="fixed">
+            <Toolbar className={muiClasses.root}>
+                <div className={muiClasses.grow} />
+                <ButtonGroup variant='contained' >
+                    <SmartButton onClick={sourceMarkClickHandler}>{selectedNode === source ? 'Unm' : 'M'}ark as source</SmartButton>
+                    <SmartButton onClick={sinkMarkClickHandler}>{selectedNode === sink ? 'Unm' : 'M'}ark as sink</SmartButton>
+                    <SmartButton onClick={deleteClickHandler}>Delete</SmartButton>
+                </ButtonGroup>
+                <SmartButton onClick={runClickHandler} color='primary' variant='contained' startIcon={<PlayArrow />}>Compute</SmartButton>
+            </Toolbar>
+        </AppBar>
         <div onClick={canvasClickHandler} className={classes.canvas}>
             {
                 Object.values(graphNodes).map(({ value }) => {
