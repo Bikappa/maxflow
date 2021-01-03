@@ -1,4 +1,4 @@
-import React, { DragEvent } from "react"
+import React, { DragEvent, memo } from "react"
 import { createUseStyles } from "react-jss";
 
 import { Point } from "../../geometry"
@@ -11,14 +11,15 @@ const useStyles = createUseStyles({
     top: '-2em'
   }
 })
-export function FlowNode(props: {
+export const FlowNode = memo((props: {
   id: NodeId
-  position: Point
+  positionX: number,
+  positionY: number,
   onClick: (id: NodeId) => void
-  onDrag: (event: DragEvent) => void
+  onDrag: (id: NodeId, event: DragEvent) => void
   bgColor?: string
   label?: string
-}) {
+}) => {
   const classes = useStyles()
 
   const dragStartHandler = (event: DragEvent) => {
@@ -26,7 +27,6 @@ export function FlowNode(props: {
     img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=';
     event.dataTransfer.setDragImage(img, 0, 0);
   }
-
   return (
     <div
       className='flow-node'
@@ -36,18 +36,18 @@ export function FlowNode(props: {
         e.stopPropagation()
         props.onClick(props.id)
       }}
-      onDrag={props.onDrag}
+      onDrag={(event) => props.onDrag(props.id, event)}
       onDragStart={dragStartHandler}
       style={
         {
-          top: asPixels(props.position.y),
-          left: asPixels(props.position.x),
+          top: asPixels(props.positionY),
+          left: asPixels(props.positionX),
           backgroundColor: props.bgColor,
         }}>
       {props.id}
       {props.label ? <span className={classes.label}>{props.label}</span> : null}
     </div>
   )
-}
+})
 
 

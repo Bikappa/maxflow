@@ -1,5 +1,5 @@
 import React from 'react'
-import { angle, distance, middle, Point } from '../../geometry/index';
+import { angle, distance, middle } from '../../geometry/index';
 import { asPixels, cssAngle } from '../../utils/index';
 import { createUseStyles } from 'react-jss'
 
@@ -22,14 +22,18 @@ const useStyles = createUseStyles({
 })
 
 export function FlowArc(props: {
-  start: Point
-  end: Point
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
   capacity: number
   flow: number
 }) {
 
+  const start = {x: props.startX, y: props.startY}
+  const end = {x: props.endX, y: props.endY}
   const classes = useStyles()
-  const { start, end, capacity, flow } = props
+  const { capacity, flow } = props
   const length = distance(start, end)
   const pos = middle(start, end)
   const orientation = angle(start, end)
