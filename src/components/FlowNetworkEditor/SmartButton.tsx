@@ -1,7 +1,8 @@
 import { Button } from "@material-ui/core";
+import { memo } from "react";
 
 
-export function SmartButton(props: React.ComponentProps<typeof Button>) {
+export const SmartButton = memo((props: React.ComponentProps<typeof Button>) => {
     const {onClick, disabled, ...otherProps} = props
     return <Button
         variant='contained'
@@ -11,4 +12,4 @@ export function SmartButton(props: React.ComponentProps<typeof Button>) {
         >
         {props.children}
     </Button>
-}
+})
