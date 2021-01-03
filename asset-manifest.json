@@ -1,20 +1,20 @@
 {
   "files": {
     "main.css": "/maxflow/static/css/main.77e304ae.chunk.css",
-    "main.js": "/maxflow/static/js/main.93aa01a6.chunk.js",
-    "main.js.map": "/maxflow/static/js/main.93aa01a6.chunk.js.map",
+    "main.js": "/maxflow/static/js/main.9c5a8c88.chunk.js",
+    "main.js.map": "/maxflow/static/js/main.9c5a8c88.chunk.js.map",
     "runtime-main.js": "/maxflow/static/js/runtime-main.53287213.js",
     "runtime-main.js.map": "/maxflow/static/js/runtime-main.53287213.js.map",
-    "static/js/2.bc231e56.chunk.js": "/maxflow/static/js/2.bc231e56.chunk.js",
-    "static/js/2.bc231e56.chunk.js.map": "/maxflow/static/js/2.bc231e56.chunk.js.map",
+    "static/js/2.363fa7c6.chunk.js": "/maxflow/static/js/2.363fa7c6.chunk.js",
+    "static/js/2.363fa7c6.chunk.js.map": "/maxflow/static/js/2.363fa7c6.chunk.js.map",
     "index.html": "/maxflow/index.html",
     "static/css/main.77e304ae.chunk.css.map": "/maxflow/static/css/main.77e304ae.chunk.css.map",
-    "static/js/2.bc231e56.chunk.js.LICENSE.txt": "/maxflow/static/js/2.bc231e56.chunk.js.LICENSE.txt"
+    "static/js/2.363fa7c6.chunk.js.LICENSE.txt": "/maxflow/static/js/2.363fa7c6.chunk.js.LICENSE.txt"
   },
   "entrypoints": [
     "static/js/runtime-main.53287213.js",
-    "static/js/2.bc231e56.chunk.js",
+    "static/js/2.363fa7c6.chunk.js",
     "static/css/main.77e304ae.chunk.css",
-    "static/js/main.93aa01a6.chunk.js"
+    "static/js/main.9c5a8c88.chunk.js"
   ]
 }
