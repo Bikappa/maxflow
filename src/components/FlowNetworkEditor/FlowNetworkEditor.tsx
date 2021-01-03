@@ -1,6 +1,6 @@
 import { AppBar, ButtonGroup, makeStyles, Toolbar } from "@material-ui/core";
 
-import { useCallback, useState } from "react";
+import { useCallback, useReducer, useState } from "react";
 import { createUseStyles } from "react-jss";
 import { Point } from "../../geometry";
 import { fordFulkerson } from "../../maxflow";
@@ -109,62 +109,105 @@ function relativePosition(absolutePosition: Point) {
   }
 }
 
+enum EDITOR_ACTIONS {
+  ADD_NODE,
+  REMOVE_NODE,
+  MOVE_NODE,
+}
+
+type Action =
+  { type: EDITOR_ACTIONS.ADD_NODE, payload: NodeData }
+  | { type: EDITOR_ACTIONS.REMOVE_NODE, payload: NodeId }
+  | { type: EDITOR_ACTIONS.MOVE_NODE, payload: {id: NodeId, position: Point} }
+
+
+type EditorState = {
+  nodes: { [id: string]: NodeData }
+  arcs: NumericLabeledArcs
+  flow: NumericLabeledArcs
+  source?: NodeId
+  sink?: NodeId
+}
+
+function reducer(state: EditorState, action: Action): EditorState {
+  switch (action.type) {
+    case EDITOR_ACTIONS.ADD_NODE:
+      return {
+        ...state,
+        nodes: {
+          ...state.nodes,
+          [action.payload.id]: action.payload
+        }
+      }
+    case EDITOR_ACTIONS.REMOVE_NODE:
+      const { [action.payload]: deleted, ...left } = state.nodes
+      return {
+        ...state,
+        nodes: left
+      }
+    case EDITOR_ACTIONS.MOVE_NODE:
+      
+        return {
+          ...state,
+          nodes: {
+            ...state.nodes,
+            [action.payload.id]: {
+              ...state.nodes[action.payload.id],
+              position: action.payload.position
+            }
+          }
+        }
+    default:
+      return state
+
+  }
+}
+
+
 export function FlowNetworkEditor() {
-  const muiClasses = useMUIStyles()
-  const [nodeData, setNodeData] = useState<{ [id: string]: NodeData }>({})
+
+
   const [arcs, setArcs] = useState<NumericLabeledArcs>({})
   const [flow, setFlow] = useState<NumericLabeledArcs>({})
   const [source, setSource] = useState<NodeId | undefined>(undefined)
   const [sink, setSink] = useState<NodeId | undefined>(undefined)
   const [defaultArcCapacity] = useState(10)
+  const muiClasses = useMUIStyles()
 
+  const [state, dispatch] = useReducer(reducer, {
+    nodes: {},
+    arcs: {},
+    flow: {},
+  })
   const [selectedNode, setSelectedNode] = useState<NodeId | undefined>(undefined)
 
-  const graph = new Graph<FlowNode>();
-
-  Object.values(nodeData).forEach((node) => {
-    graph.addNode(node.id, new FlowNode(node.id, node.position))
-  })
-
-  for (const [from, tos] of Object.entries(arcs)) {
-    for (const [to] of Object.entries(tos)) {
-      graph.addArc(from, to)
-    }
-  }
-
   const dragHandler = useCallback((id, event) => {
+    
     event.preventDefault()
-    const newPos = relativePosition({ x: event.clientX, y: event.clientY })
-    setNodeData((prev) => {
-      return {
-        ...prev,
-        [id]: {
-          id,
-          position: newPos
-        }
+    const position = relativePosition({ x: event.clientX, y: event.clientY })
+
+    dispatch({
+      type: EDITOR_ACTIONS.MOVE_NODE,
+      payload: {
+        id,
+        position
       }
     })
-  }, [setNodeData])
+   
+  }, [])
 
   const canvasClickHandler = useCallback((e: React.MouseEvent) => {
-
-    setNodeData((prev) => {
-
-      //add a new node
-      const newNode = {
-        id: '' + Object.keys(prev).length,
+    dispatch({
+      type: EDITOR_ACTIONS.ADD_NODE,
+      payload: {
+        id: '' + Object.keys(state.nodes).length,
         position: relativePosition({ x: e.clientX, y: e.clientY })
       }
-
-      return {
-        ...prev,
-        [newNode.id]: newNode,
-      }
     })
-  }, [setNodeData])
+  }, [state.nodes])
 
   const nodeClickHandler = useCallback((id: NodeId) => {
-    if(!selectedNode){
+    if (!selectedNode) {
       setSelectedNode(id)
       return
     }
@@ -209,8 +252,10 @@ export function FlowNetworkEditor() {
 
     setArcs(otherArcs)
     //remove the node
-    const { [selectedNode]: deletedNode, ...otherNodes } = nodeData
-    setNodeData(otherNodes)
+    dispatch({
+      type: EDITOR_ACTIONS.REMOVE_NODE,
+      payload: selectedNode,
+    })
 
   } : undefined
 
@@ -233,7 +278,6 @@ export function FlowNetworkEditor() {
   } : undefined
 
   const classes = useStyles()
-  const graphNodes = graph.getNodes()
 
   return <>
     <AppBar position="fixed">
@@ -249,24 +293,24 @@ export function FlowNetworkEditor() {
     </AppBar>
     <div onClick={canvasClickHandler} className={classes.canvas}>
       {
-        Object.values(graphNodes).map(({ value }) => {
-          const pos = absolutePosition(value.position)
+        Object.values(state.nodes).map(node => {
+          const pos = absolutePosition(node.position)
           return <FlowNetworkNode
-            key={value.id}
+            key={node.id}
             onDrag={dragHandler}
             onClick={nodeClickHandler}
-            {...value}
+            {...node}
             positionX={pos.x}
             positionY={pos.y}
-            bgColor={value.id === selectedNode ? 'red' : undefined}
-            label={sink === value.id ? <FlagIcon /> : (source === value.id ?  <InputIcon /> : undefined)}
+            bgColor={node.id === selectedNode ? 'red' : undefined}
+            label={sink === node.id ? <FlagIcon /> : (source === node.id ? <InputIcon /> : undefined)}
           />
         })
       }
-      {
+      {/* {
         graph.getArcs().map(([from, to]) => {
-          const start = absolutePosition(graphNodes[from].value.position)
-          const end = absolutePosition(graphNodes[to].value.position)
+          const start = absolutePosition(state.nodes[from].position)
+          const end = absolutePosition(state.nodes[to].position)
           return <FlowArc
             key={from + '-' + to}
             flow={flow[from]?.[to] || 0}
@@ -277,7 +321,7 @@ export function FlowNetworkEditor() {
             endY={end.y}
           />
         })
-      }
+      } */}
     </div>
   </>
 
