@@ -1,16 +1,17 @@
+import { makeStyles } from "@material-ui/core";
 import React, { DragEvent, memo } from "react"
-import { createUseStyles } from "react-jss";
 
-import { Point } from "../../geometry"
 import { asPixels } from '../../utils/index';
 import { NodeId } from "../types";
 
-const useStyles = createUseStyles({
+const useStyles = makeStyles((theme) => ({
   label: {
-    position: 'absolute',
-    top: '-2em'
-  }
-})
+
+    display: 'inline-block',
+    marginTop: theme.spacing(1)
+  },
+}));
+
 export const FlowNode = memo((props: {
   id: NodeId
   positionX: number,
@@ -18,7 +19,7 @@ export const FlowNode = memo((props: {
   onClick: (id: NodeId) => void
   onDrag: (id: NodeId, event: DragEvent) => void
   bgColor?: string
-  label?: string
+  label?: React.ReactNode
 }) => {
   const classes = useStyles()
 
@@ -45,7 +46,9 @@ export const FlowNode = memo((props: {
           backgroundColor: props.bgColor,
         }}>
       {props.id}
-      {props.label ? <span className={classes.label}>{props.label}</span> : null}
+      <span className={classes.label}>
+        {props.label}
+      </span>
     </div>
   )
 })

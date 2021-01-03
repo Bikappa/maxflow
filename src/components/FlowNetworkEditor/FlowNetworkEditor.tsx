@@ -1,5 +1,5 @@
 import { AppBar, ButtonGroup, makeStyles, Toolbar } from "@material-ui/core";
-import { PlayArrow } from "@material-ui/icons";
+
 import { useCallback, useState } from "react";
 import { createUseStyles } from "react-jss";
 import { Point } from "../../geometry";
@@ -7,6 +7,10 @@ import { fordFulkerson } from "../../maxflow";
 import { FlowArc, FlowNetworkNode } from "../flow";
 import { NodeId, NumericLabeledArcs } from "../types";
 import { SmartButton } from "./SmartButton";
+import FlagIcon from '@material-ui/icons/Flag';
+import PlayArrowIcon from "@material-ui/icons/PlayArrow";
+import InputIcon from '@material-ui/icons/Input';
+import DeleteIcon from '@material-ui/icons/Delete';
 
 const useStyles = createUseStyles({
   canvas: {
@@ -236,11 +240,11 @@ export function FlowNetworkEditor() {
       <Toolbar className={muiClasses.root}>
         <div className={muiClasses.grow} />
         <ButtonGroup variant='contained' >
-          <SmartButton onClick={sourceMarkClickHandler}>{selectedNode === source ? 'Unm' : 'M'}ark as source</SmartButton>
-          <SmartButton onClick={sinkMarkClickHandler}>{selectedNode === sink ? 'Unm' : 'M'}ark as sink</SmartButton>
-          <SmartButton onClick={deleteClickHandler}>Delete</SmartButton>
+          <SmartButton onClick={sourceMarkClickHandler} startIcon={<InputIcon />}>{selectedNode === source ? 'Unm' : 'M'}ark as source</SmartButton>
+          <SmartButton onClick={sinkMarkClickHandler} startIcon={<FlagIcon />}>{selectedNode === sink ? 'Unm' : 'M'}ark as sink</SmartButton>
+          <SmartButton onClick={deleteClickHandler} startIcon={<DeleteIcon />}>Delete</SmartButton>
         </ButtonGroup>
-        <SmartButton onClick={runClickHandler} color='primary' variant='contained' startIcon={<PlayArrow />}>Compute</SmartButton>
+        <SmartButton onClick={runClickHandler} color='primary' variant='contained' startIcon={<PlayArrowIcon />}>Compute</SmartButton>
       </Toolbar>
     </AppBar>
     <div onClick={canvasClickHandler} className={classes.canvas}>
@@ -255,7 +259,7 @@ export function FlowNetworkEditor() {
             positionX={pos.x}
             positionY={pos.y}
             bgColor={value.id === selectedNode ? 'red' : undefined}
-            label={sink === value.id ? 'sink' : (source === value.id ? 'source' : undefined)}
+            label={sink === value.id ? <FlagIcon /> : (source === value.id ?  <InputIcon /> : undefined)}
           />
         })
       }
