@@ -1,6 +1,6 @@
 import { AppBar, ButtonGroup, makeStyles, Toolbar } from "@material-ui/core";
 
-import { useCallback, useReducer, useState } from "react";
+import { memo, useCallback, useMemo, useReducer, useState } from "react";
 import { createUseStyles } from "react-jss";
 import { Point } from "../../geometry";
 import { fordFulkerson } from "../../maxflow";
@@ -40,49 +40,6 @@ class Node<T>{
   }
 }
 
-class Graph<T>{
-  private _nodes: { [id: string]: Node<T> } = {}
-  private _adjacencyTable: { [from: string]: { [to: string]: boolean } } = {}
-
-  addNode(id: string, value: T) {
-    if ((id in this._nodes)) {
-      throw new Error('Conflicting node id')
-    }
-
-    this._nodes[id] = new Node(id, value)
-  }
-
-  addArc(from: string, to: string) {
-    if (!this._adjacencyTable[from]) {
-      this._adjacencyTable[from] = {}
-    }
-    this._adjacencyTable[from][to] = true
-  }
-
-  getNodes() {
-    return this._nodes
-  }
-
-  getArcs() {
-    return Object.entries(this._adjacencyTable).map(([from, tos]) => {
-      return Object.entries(tos).filter(([, linked]) => linked).map(([to]) => [from, to])
-    }).flat()
-  }
-}
-
-class FlowNode {
-  public id;
-  public position: Point
-  constructor(id: string, position: Point) {
-    this.id = id
-    this.position = position
-  }
-
-  toString() {
-    return this.id
-  }
-}
-
 type NodeData = {
   id: string,
   position: Point,
@@ -113,12 +70,20 @@ enum EDITOR_ACTIONS {
   ADD_NODE,
   REMOVE_NODE,
   MOVE_NODE,
+  ADD_ARC,
+  SET_SOURCE,
+  SET_SINK,
+  SELECT_NODE
 }
 
 type Action =
   { type: EDITOR_ACTIONS.ADD_NODE, payload: NodeData }
   | { type: EDITOR_ACTIONS.REMOVE_NODE, payload: NodeId }
-  | { type: EDITOR_ACTIONS.MOVE_NODE, payload: {id: NodeId, position: Point} }
+  | { type: EDITOR_ACTIONS.MOVE_NODE, payload: { id: NodeId, position: Point } }
+  | { type: EDITOR_ACTIONS.ADD_ARC, payload: { from: NodeId, to: NodeId, capacity: number } }
+  | { type: EDITOR_ACTIONS.SET_SOURCE, payload: NodeId | undefined }
+  | { type: EDITOR_ACTIONS.SET_SINK, payload: NodeId | undefined }
+  | { type: EDITOR_ACTIONS.SELECT_NODE, payload: NodeId }
 
 
 type EditorState = {
@@ -127,6 +92,7 @@ type EditorState = {
   flow: NumericLabeledArcs
   source?: NodeId
   sink?: NodeId
+  selectedNode?: NodeId
 }
 
 function reducer(state: EditorState, action: Action): EditorState {
@@ -140,23 +106,61 @@ function reducer(state: EditorState, action: Action): EditorState {
         }
       }
     case EDITOR_ACTIONS.REMOVE_NODE:
-      const { [action.payload]: deleted, ...left } = state.nodes
+      const { [action.payload]: deleted, ...nodes } = state.nodes
+      const { [action.payload]: arcsFromRemovedNode, ...arcs } = state.arcs
+
+      //remove the ingoing arcs to the node
+      for (const tos of Object.values(arcs)) {
+        delete tos[action.payload]
+      }
       return {
         ...state,
-        nodes: left
+        arcs,
+        nodes,
+        selectedNode: action.payload !== state.selectedNode ? state.selectedNode : undefined,
+        source: action.payload !== state.source ? state.source : undefined,
+        sink: action.payload !== state.sink ? state.source : undefined,
+      }
+    case EDITOR_ACTIONS.ADD_ARC:
+      return {
+        ...state,
+        selectedNode: undefined,
+        arcs: {
+          ...state.arcs,
+          [action.payload.from]: {
+            ...state.arcs[action.payload.from],
+            [action.payload.to]: action.payload.capacity
+          }
+        },
       }
     case EDITOR_ACTIONS.MOVE_NODE:
-      
-        return {
-          ...state,
-          nodes: {
-            ...state.nodes,
-            [action.payload.id]: {
-              ...state.nodes[action.payload.id],
-              position: action.payload.position
-            }
+      return {
+        ...state,
+        nodes: {
+          ...state.nodes,
+          [action.payload.id]: {
+            ...state.nodes[action.payload.id],
+            position: action.payload.position
           }
         }
+      }
+    case EDITOR_ACTIONS.SET_SOURCE:
+      return {
+        ...state,
+        selectedNode: undefined,
+        source: action.payload
+      }
+    case EDITOR_ACTIONS.SET_SINK:
+      return {
+        ...state,
+        selectedNode: undefined,
+        sink: action.payload
+      }
+    case EDITOR_ACTIONS.SELECT_NODE:
+      return {
+        ...state,
+        selectedNode: action.payload !== state.selectedNode ? action.payload : undefined
+      }
     default:
       return state
 
@@ -166,23 +170,18 @@ function reducer(state: EditorState, action: Action): EditorState {
 
 export function FlowNetworkEditor() {
 
-
-  const [arcs, setArcs] = useState<NumericLabeledArcs>({})
   const [flow, setFlow] = useState<NumericLabeledArcs>({})
-  const [source, setSource] = useState<NodeId | undefined>(undefined)
-  const [sink, setSink] = useState<NodeId | undefined>(undefined)
   const [defaultArcCapacity] = useState(10)
-  const muiClasses = useMUIStyles()
 
   const [state, dispatch] = useReducer(reducer, {
     nodes: {},
     arcs: {},
     flow: {},
   })
-  const [selectedNode, setSelectedNode] = useState<NodeId | undefined>(undefined)
 
+  const { sink, source, selectedNode } = state
   const dragHandler = useCallback((id, event) => {
-    
+
     event.preventDefault()
     const position = relativePosition({ x: event.clientX, y: event.clientY })
 
@@ -193,104 +192,109 @@ export function FlowNetworkEditor() {
         position
       }
     })
-   
+
   }, [])
 
   const canvasClickHandler = useCallback((e: React.MouseEvent) => {
     dispatch({
       type: EDITOR_ACTIONS.ADD_NODE,
       payload: {
-        id: '' + Object.keys(state.nodes).length,
+        id: '' + Date.now(),
         position: relativePosition({ x: e.clientX, y: e.clientY })
       }
     })
-  }, [state.nodes])
+  }, [])
 
-  const nodeClickHandler = useCallback((id: NodeId) => {
-    if (!selectedNode) {
-      setSelectedNode(id)
-      return
+
+  const nodeClickHandler = useMemo(() => {
+    return (id: NodeId) => {
+
+      if (!selectedNode || id === selectedNode) {
+        dispatch({
+          type: EDITOR_ACTIONS.SELECT_NODE,
+          payload: id
+        })
+        return
+      }
+
+      //we add the new arc
+      if (!state.arcs[selectedNode]?.[id] && !state.arcs[id]?.[selectedNode]) {
+        dispatch({
+          type: EDITOR_ACTIONS.ADD_ARC,
+          payload: {
+            from: selectedNode,
+            to: id,
+            capacity: Math.round(8 * Math.random()) + 2
+          }
+        })
+      }
     }
-    //we add the new arc
-    if (id !== selectedNode && !arcs[selectedNode]?.[id] && !arcs[id]?.[selectedNode]) {
-      setArcs((prev) => ({
-        ...prev,
-        [selectedNode]: {
-          ...prev[selectedNode],
-          [id]: Math.round(8 * Math.random()) + 2
-        }
-      }))
-    }
-    setSelectedNode(undefined)
-  }, [selectedNode, setSelectedNode, arcs, setArcs])
+  }, [selectedNode, state.arcs])
 
-  const runClickHandler = source && sink ? () => {
-    new Promise<NumericLabeledArcs>((resolve) => {
-      const flow = fordFulkerson(source, sink, arcs)
-      resolve(flow)
-    }).then(setFlow)
-  } : undefined
+  const runClickHandler = useMemo(() => {
+    return source && sink ? () => {
+      new Promise<NumericLabeledArcs>((resolve) => {
+        const flow = fordFulkerson(source, sink, state.arcs)
+        resolve(flow)
+      }).then(setFlow)
+    } : undefined
+  },
+    [state.arcs, source, sink])
 
-  const deleteClickHandler = selectedNode ? () => {
-    if (source === selectedNode) {
-      setSource(undefined)
-    }
+  const deleteClickHandler = useMemo(() => {
+    return selectedNode ? () => {
+      //remove the node
+      dispatch({
+        type: EDITOR_ACTIONS.REMOVE_NODE,
+        payload: selectedNode,
+      })
 
-    if (sink === selectedNode) {
-      setSink(undefined)
-    }
+    } : undefined
+  },
+    [selectedNode])
 
-    setSelectedNode(undefined)
+  const sourceMarkClickHandler = useMemo(() => {
+    return selectedNode && selectedNode !== sink ? () => {
+      dispatch({
+        type: EDITOR_ACTIONS.SET_SOURCE,
+        payload: selectedNode !== source ? selectedNode : undefined,
+      })
+    } : undefined
+  },
+    [selectedNode, sink, source]
+  )
 
-    //remove the arcs from and to the node
-    const { [selectedNode]: fromDeletedNodeArcs, ...otherArcs } = arcs
+  const sinkMarkClickHandler = useMemo(() => {
+    return selectedNode && selectedNode !== source ? () => {
+      dispatch({
+        type: EDITOR_ACTIONS.SET_SINK,
+        payload: selectedNode !== sink ? selectedNode : undefined,
+      })
+    } : undefined
+  },
+    [selectedNode, sink, source]
+  )
 
-    //remove the ingoing arcs to the node
-    for (const tos of Object.values(otherArcs)) {
-      delete tos[selectedNode]
-    }
-
-    setArcs(otherArcs)
-    //remove the node
-    dispatch({
-      type: EDITOR_ACTIONS.REMOVE_NODE,
-      payload: selectedNode,
-    })
-
-  } : undefined
-
-  const sourceMarkClickHandler = selectedNode && selectedNode !== sink ? () => {
-    if (selectedNode === source) {
-      setSource(undefined)
-    } else {
-      setSource(selectedNode)
-    }
-    setSelectedNode(undefined)
-  } : undefined
-
-  const sinkMarkClickHandler = selectedNode && selectedNode !== source ? () => {
-    if (selectedNode === sink) {
-      setSink(undefined)
-    } else {
-      setSink(selectedNode)
-    }
-    setSelectedNode(undefined)
-  } : undefined
 
   const classes = useStyles()
+  const muiClasses = useMUIStyles()
+
+  const Bar = useMemo(() => <AppBar position="fixed">
+    <Toolbar className={muiClasses.root}>
+      <div  className={muiClasses.grow}/>
+      <ButtonGroup variant='contained' >
+        <SmartButton onClick={sourceMarkClickHandler} startIcon={<InputIcon />}>{selectedNode === source ? 'Unm' : 'M'}ark as source</SmartButton>
+        <SmartButton onClick={sinkMarkClickHandler} startIcon={<FlagIcon />}>{selectedNode === sink ? 'Unm' : 'M'}ark as sink</SmartButton>
+        <SmartButton onClick={deleteClickHandler} startIcon={<DeleteIcon />}>Delete</SmartButton>
+      </ButtonGroup>
+      <SmartButton onClick={runClickHandler} color='primary' variant='contained' startIcon={<PlayArrowIcon />}>Compute</SmartButton>
+    </Toolbar>
+  </AppBar>,
+    [sourceMarkClickHandler, sinkMarkClickHandler, runClickHandler, deleteClickHandler, source, sink, selectedNode, muiClasses])
+
 
   return <>
-    <AppBar position="fixed">
-      <Toolbar className={muiClasses.root}>
-        <div className={muiClasses.grow} />
-        <ButtonGroup variant='contained' >
-          <SmartButton onClick={sourceMarkClickHandler} startIcon={<InputIcon />}>{selectedNode === source ? 'Unm' : 'M'}ark as source</SmartButton>
-          <SmartButton onClick={sinkMarkClickHandler} startIcon={<FlagIcon />}>{selectedNode === sink ? 'Unm' : 'M'}ark as sink</SmartButton>
-          <SmartButton onClick={deleteClickHandler} startIcon={<DeleteIcon />}>Delete</SmartButton>
-        </ButtonGroup>
-        <SmartButton onClick={runClickHandler} color='primary' variant='contained' startIcon={<PlayArrowIcon />}>Compute</SmartButton>
-      </Toolbar>
-    </AppBar>
+    {Bar}
     <div onClick={canvasClickHandler} className={classes.canvas}>
       {
         Object.values(state.nodes).map(node => {
@@ -298,7 +302,7 @@ export function FlowNetworkEditor() {
           return <FlowNetworkNode
             key={node.id}
             onDrag={dragHandler}
-            onClick={nodeClickHandler}
+            onClick={() => nodeClickHandler(node.id)}
             {...node}
             positionX={pos.x}
             positionY={pos.y}
@@ -307,21 +311,21 @@ export function FlowNetworkEditor() {
           />
         })
       }
-      {/* {
-        graph.getArcs().map(([from, to]) => {
+      {
+        Object.keys(state.arcs).map(from => Object.keys(state.arcs[from]).map(to => {
           const start = absolutePosition(state.nodes[from].position)
           const end = absolutePosition(state.nodes[to].position)
           return <FlowArc
             key={from + '-' + to}
             flow={flow[from]?.[to] || 0}
-            capacity={arcs[from][to]}
+            capacity={state.arcs[from][to]}
             startX={start.x}
             startY={start.y}
             endX={end.x}
             endY={end.y}
           />
-        })
-      } */}
+        })).flat()
+      }
     </div>
   </>
 

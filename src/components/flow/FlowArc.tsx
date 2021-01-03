@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo } from 'react'
 import { angle, distance, middle } from '../../geometry/index';
 import { asPixels, cssAngle } from '../../utils/index';
 import { createUseStyles } from 'react-jss'
@@ -21,14 +21,14 @@ const useStyles = createUseStyles({
   },
 })
 
-export function FlowArc(props: {
+export const FlowArc = memo((props: {
   startX: number,
   startY: number,
   endX: number,
   endY: number,
   capacity: number
   flow: number
-}) {
+}) => {
 
   const start = {x: props.startX, y: props.startY}
   const end = {x: props.endX, y: props.endY}
@@ -53,4 +53,4 @@ export function FlowArc(props: {
     <i className={classes.arrow} />
     <span className={classes.arcLabel}>{flow}/{capacity}</span>
   </div>
-}
+})
