@@ -1,6 +1,26 @@
+import { sleep } from "../utils/sleep"
+
 type Arcs = { [from: string]: { [to: string]: number } }
 
-export function fordFulkerson(source: string, sink: string, arcs: Arcs) {
+
+type MaxFlowParams = {
+  source: string
+  sink: string
+  arcs: Arcs,
+  onUpdate?: (update: MaxFlowUpdate) => void
+}
+
+type MaxFlowUpdate = {
+  highligthedPath?: string[],
+  flow: Arcs
+}
+
+export async function fordFulkerson({
+  arcs,
+  source,
+  sink,
+  onUpdate = () => { }
+}: MaxFlowParams) {
 
   const flow: Arcs = {}
 
@@ -74,8 +94,9 @@ export function fordFulkerson(source: string, sink: string, arcs: Arcs) {
         flow[from][to] += arcIncrease
       }
     }
-
+    onUpdate({ highligthedPath: [...augmentingPath?.visited], flow: {...flow} })
     augmentingPath = findPath(source, [], Infinity)
+    await sleep(1000)
   }
 
   return flow

@@ -83,16 +83,20 @@ type EditorState = {
   source?: NodeId
   sink?: NodeId
   selectedNode?: NodeId
+  fixedSink: boolean,
 }
 
 function reducer(state: EditorState, action: Action): EditorState {
   switch (action.type) {
     case EDITOR_ACTIONS.ADD_NODE:
+      const newNode = action.payload
       return {
         ...state,
+        source: state.source ?? newNode.id,
+        sink:  !state.source || state.fixedSink ? state.sink : newNode.id,
         nodes: {
           ...state.nodes,
-          [action.payload.id]: action.payload
+          [newNode.id]: newNode
         }
       }
     case EDITOR_ACTIONS.REMOVE_NODE:
@@ -103,13 +107,16 @@ function reducer(state: EditorState, action: Action): EditorState {
       for (const tos of Object.values(arcs)) {
         delete tos[action.payload]
       }
+      const wasSink = action.payload === state.sink
+      const wasSource = action.payload === state.sink
       return {
         ...state,
         arcs,
         nodes,
         selectedNode: action.payload !== state.selectedNode ? state.selectedNode : undefined,
-        source: action.payload !== state.source ? state.source : undefined,
-        sink: action.payload !== state.sink ? state.source : undefined,
+        source: wasSource ? state.source : undefined,
+        sink: wasSink ? state.source : undefined,
+        fixedSink: wasSink ? false : state.fixedSink
       }
     case EDITOR_ACTIONS.ADD_ARC:
       return {
@@ -144,7 +151,8 @@ function reducer(state: EditorState, action: Action): EditorState {
       return {
         ...state,
         selectedNode: undefined,
-        sink: action.payload
+        sink: action.payload,
+        fixedSink: true
       }
     case EDITOR_ACTIONS.SELECT_NODE:
       return {
@@ -166,6 +174,7 @@ export function FlowNetworkEditor() {
     nodes: {},
     arcs: {},
     flow: {},
+    fixedSink: false
   })
 
   const { sink, source, selectedNode } = state
@@ -222,10 +231,18 @@ export function FlowNetworkEditor() {
 
   const runClickHandler = useMemo(() => {
     return source && sink ? () => {
-      new Promise<NumericLabeledArcs>((resolve) => {
-        const flow = fordFulkerson(source, sink, state.arcs)
-        resolve(flow)
-      }).then(setFlow)
+      Promise.resolve()
+        .then(() => {
+          return fordFulkerson({
+            source,
+            sink,
+            arcs: state.arcs,
+            onUpdate: ({ flow, highligthedPath }) => {
+              setFlow(flow)
+            }
+          })
+        })
+        .then(setFlow)
     } : undefined
   }, [state.arcs, source, sink])
 
@@ -265,7 +282,7 @@ export function FlowNetworkEditor() {
 
   const Bar = useMemo(() => <AppBar position="fixed">
     <Toolbar className={muiClasses.root}>
-      <div  className={muiClasses.grow}/>
+      <div className={muiClasses.grow} />
       <ButtonGroup variant='contained' >
         <SmartButton onClick={sourceMarkClickHandler} startIcon={<InputIcon />}>{selectedNode === source ? 'Unm' : 'M'}ark as source</SmartButton>
         <SmartButton onClick={sinkMarkClickHandler} startIcon={<FlagIcon />}>{selectedNode === sink ? 'Unm' : 'M'}ark as sink</SmartButton>
@@ -297,6 +314,7 @@ export function FlowNetworkEditor() {
         Object.keys(state.arcs).map(from => Object.keys(state.arcs[from]).map(to => {
           const start = absolutePosition(state.nodes[from].position)
           const end = absolutePosition(state.nodes[to].position)
+
           return <FlowArc
             key={from + '-' + to}
             flow={flow[from]?.[to] || 0}
