@@ -1,4 +1,4 @@
-import { AppBar, ButtonGroup, makeStyles, Toolbar } from "@material-ui/core";
+import { AppBar, ButtonGroup, makeStyles, Toolbar, Theme, } from "@material-ui/core";
 
 import { useCallback, useMemo, useReducer, useState } from "react";
 import { createUseStyles } from "react-jss";
@@ -19,16 +19,18 @@ const useStyles = createUseStyles({
   }
 })
 
-const useMUIStyles = makeStyles((theme) => ({
-  root: {
-    '& > *': {
-      margin: theme.spacing(1),
+const useMUIStyles = makeStyles((theme: Theme) => ({
+    root: {
+      backgroundColor: theme.palette.primary.main,
+      '& > *': {
+        margin: theme.spacing(1),
+      },
     },
-  },
-  grow: {
-    flexGrow: 1,
-  },
-}));
+    grow: {
+      flexGrow: 1,
+    },
+  })
+);
 
 type NodeData = {
   id: string,
@@ -93,7 +95,7 @@ function reducer(state: EditorState, action: Action): EditorState {
       return {
         ...state,
         source: state.source ?? newNode.id,
-        sink:  !state.source || state.fixedSink ? state.sink : newNode.id,
+        sink: !state.source || state.fixedSink ? state.sink : newNode.id,
         nodes: {
           ...state.nodes,
           [newNode.id]: newNode
@@ -164,7 +166,6 @@ function reducer(state: EditorState, action: Action): EditorState {
 
   }
 }
-
 
 export function FlowNetworkEditor() {
 
@@ -280,15 +281,15 @@ export function FlowNetworkEditor() {
   const classes = useStyles()
   const muiClasses = useMUIStyles()
 
-  const Bar = useMemo(() => <AppBar position="fixed">
-    <Toolbar className={muiClasses.root}>
+  const Bar = useMemo(() => <AppBar position="fixed" color='primary' className={muiClasses.root}>
+    <Toolbar className={muiClasses.root} >
       <div className={muiClasses.grow} />
       <ButtonGroup variant='contained' >
         <SmartButton onClick={sourceMarkClickHandler} startIcon={<InputIcon />}>{selectedNode === source ? 'Unm' : 'M'}ark as source</SmartButton>
         <SmartButton onClick={sinkMarkClickHandler} startIcon={<FlagIcon />}>{selectedNode === sink ? 'Unm' : 'M'}ark as sink</SmartButton>
         <SmartButton onClick={deleteClickHandler} startIcon={<DeleteIcon />}>Delete</SmartButton>
       </ButtonGroup>
-      <SmartButton onClick={runClickHandler} color='primary' variant='contained' startIcon={<PlayArrowIcon />}>Compute</SmartButton>
+      <SmartButton onClick={runClickHandler} color='secondary' variant='contained' startIcon={<PlayArrowIcon />}>Compute</SmartButton>
     </Toolbar>
   </AppBar>, [sourceMarkClickHandler, sinkMarkClickHandler, runClickHandler, deleteClickHandler, source, sink, selectedNode, muiClasses])
 
@@ -305,8 +306,8 @@ export function FlowNetworkEditor() {
             {...node}
             positionX={pos.x}
             positionY={pos.y}
-            bgColor={node.id === selectedNode ? 'red' : undefined}
-            label={sink === node.id ? <FlagIcon /> : (source === node.id ? <InputIcon /> : undefined)}
+            selected={node.id === selectedNode}
+            label={sink === node.id ? <FlagIcon /> : (source === node.id ? <PlayArrowIcon /> : undefined)}
           />
         })
       }
